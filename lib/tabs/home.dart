@@ -9,6 +9,7 @@ import '../screen/product.dart';
 class HomeTabs extends StatelessWidget {
   const HomeTabs({super.key});
 
+
   static const query = """
   {
     categoryList(filters: { ids: {in: ["21", "12"]}}) {
