@@ -62,7 +62,7 @@ class MyApp extends StatelessWidget {
       child: DynamicColorBuilder(
         builder: (lightColorScheme, darkColorScheme) {
           return MaterialApp(
-            title: 'Magento Shop',
+            title: 'FOH Home',
             theme: ThemeData(
               colorScheme: lightColorScheme ?? _defaultLightColorScheme,
               useMaterial3: true,

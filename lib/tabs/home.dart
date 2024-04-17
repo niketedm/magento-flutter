@@ -39,40 +39,44 @@ class HomeTabs extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         centerTitle: true,
-        title: const Text('Magento Shop'),
+        title: const Text('Ferreteria Ohiggins'),
       ),
       body: _featuredCategory(context),
     );
   }
 
   Widget _productsList(BuildContext context) {
-    return Query(
-      options: QueryOptions(
-        document: gql(query),
-      ),
-      builder: (result, {fetchMore, refetch}) {
-        if (result.hasException) {
-          return Text(result.exception.toString());
-        }
+  return Query(
+    options: QueryOptions(
+      document: gql(query),
+    ),
+    builder: (result, {fetchMore, refetch}) {
+      if (result.hasException) {
+        return Text(result.exception.toString());
+      }
 
-        if (result.isLoading) {
-          return const Center(
-            child: CircularProgressIndicator(),
-          );
-        }
+      if (result.isLoading) {
+        return const Center(
+          child: CircularProgressIndicator(),
+        );
+      }
 
-        dynamic categoryList = result.data?['categoryList'];
-        return Column(children: [
-          _listColumn(
-            categoryList[0],
-          ),
-          _listColumn(
-            categoryList[1],
-          )
-        ]);
-      },
-    );
-  }
+      dynamic categoryList = result.data?['categoryList'];
+      if (categoryList == null || categoryList.isEmpty) {
+        return const Text('No hay categoria destacada.');
+      }
+
+      return Column(children: [
+        _listColumn(
+          categoryList[0],
+        ),
+        _listColumn(
+          categoryList[1],
+        )
+      ]);
+    },
+  );
+}
 
   Widget _listColumn(dynamic categoryList) {
     List items = categoryList['products']['items'];
@@ -145,7 +149,7 @@ class HomeTabs extends StatelessWidget {
     children.add(_productsList(context));
     children.add(
       ElevatedButton(
-        child: const Text('All Categories'),
+        child: const Text('Todas las categorias'),
         onPressed: () => Navigator.push(
           context,
           MaterialPageRoute(
