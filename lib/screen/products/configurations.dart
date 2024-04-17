@@ -28,6 +28,7 @@ Widget configurationOptions({
       ),
     );
   }
+
   return Column(
     children: widgetList,
   );
@@ -35,7 +36,7 @@ Widget configurationOptions({
 
 String getVariantSku({dynamic data, required Map<String, String> options}) {
   var variantSku = '';
-  var variants = data['variants'] as List;
+  var variants = data['variants'] as List? ?? [];
   for (var variant in variants) {
     var attributes = variant['attributes'] as List;
     var zero = attributes
