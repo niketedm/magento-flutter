@@ -13,35 +13,70 @@ class CartTabs extends StatefulWidget {
   _CartTabsState createState() => _CartTabsState();
 }
 
-
 class _CartTabsState extends State<CartTabs> {
-  final String getCartItemsQuery = """
-  query GetCartItems(\$cartId: ID!) {
-    cart(id: \$cartId) {
-      id
+final String getCartItemsQuery = """
+  query GetCartItems(\$cartId: String!) {
+    cart(cart_id: \$cartId) {
+      email
       items {
         id
-        quantity
         product {
-          id
           name
-          description
-          imageUrl
-          price
+          sku
+          ... on ConfigurableProduct {
+            variants {
+              attributes {
+                uid
+                __typename
+              }
+            }
+          }
+          special_price
+          price_range {
+            __typename
+            minimum_price {
+              __typename
+              regular_price {
+                __typename
+                value
+                currency
+              }
+              final_price {
+                __typename
+                value
+                currency
+              }
+              discount {
+                __typename
+                amount_off
+              }
+            }
+          }
         }
-      }
+        quantity
+        ... on ConfigurableCartItem {
+          configurable_options {
+            configurable_product_option_uid
+            configurable_product_option_value_uid
+            option_label
+            value_label
+            id
+          }
+        }
+        __typename
+      }    
     }
   }
 """;
 
-
   @override
   Widget build(BuildContext context) {
     final cartProvider = Provider.of<CartProvider>(context);
+    print('Cart ID: ${cartProvider.id}');
     return Scaffold(
       appBar: AppBar(
         centerTitle: true,
-        title: const Text("Shopping Cart"),
+        title: const Text("Resumen de pedido"),
       ),
       body: Query(
         options: QueryOptions(
@@ -50,6 +85,7 @@ class _CartTabsState extends State<CartTabs> {
         ),
         builder: (QueryResult result, {VoidCallback? refetch, FetchMore? fetchMore}) {
           if (result.hasException) {
+            print('GraphQL Exception: ${result.exception.toString()}');
             return Text(result.exception.toString());
           }
 
@@ -57,29 +93,26 @@ class _CartTabsState extends State<CartTabs> {
             return const Center(child: CircularProgressIndicator());
           }
 
-          final items = (result.data!['cart']['items'] as List)
-              .map((item) => CartItem.fromJson(item))
-              .toList();
+          print('GraphQL Response: ${result.data}');
 
-          return ListView.builder(
-            itemCount: items.length,
-            itemBuilder: (context, index) {
-              final item = items[index];
-              return ListTile(
-                leading: CachedNetworkImage(
-                  imageUrl: item.product.imageUrl,
-                  placeholder: (context, url) => const Center(
-                    child: CircularProgressIndicator(),
-                  ),
-                  errorWidget: (context, url, error) =>
-                      const Icon(Icons.error),
-                ),
-                title: Text(item.product.name),
-                subtitle: Text(item.product.description),
-                trailing: Text('${item.product.price}'),
-              );
-            },
-          );
+          if (result.data!['cart'] != null && result.data!['cart']['items'] != null) {
+            final items = (result.data!['cart']['items'] as List)
+                .map((item) => CartItem.fromJson(item))
+                .toList();
+
+            return ListView.builder(
+              itemCount: items.length,
+              itemBuilder: (context, index) {
+                final item = items[index];
+                return ListTile(
+                  title: Text(item.product.name),
+                  subtitle: Text(item.product.sku),
+                );
+              },
+            );
+          } else {
+            return Center(child: Text('No hay elementos en el carrito'));
+          }
         },
       ),
     );
@@ -88,30 +121,82 @@ class _CartTabsState extends State<CartTabs> {
 
 class CartItem {
   final Product product;
+  final int quantity;
+  final List<ConfigurableOption> configurableOptions;
 
-  CartItem({required this.product});
+  CartItem({
+    required this.product,
+    required this.quantity,
+    this.configurableOptions = const [],
+  });
+
 
   factory CartItem.fromJson(Map<String, dynamic> json) {
+    var productJson = json['product'];
+    var product = Product.fromJson(productJson);
+    var quantity = json['quantity'];
+    var optionsJson = json['configurable_options'] as List?;
+    var options = optionsJson != null ? optionsJson.map((option) => ConfigurableOption.fromJson(option)).toList() : [];
     return CartItem(
-      product: Product.fromJson(json['product']),
+      product: product,
+      quantity: quantity,
+      configurableOptions: options.cast<ConfigurableOption>(),
     );
   }
 }
 
 class Product {
   final String name;
-  final String description;
-  final String imageUrl;
-  final double price;
+  final String sku;
+  final double? specialPrice;
+  final PriceRange priceRange;
 
-  Product({required this.name, required this.description, required this.imageUrl, required this.price});
+  Product({required this.name, required this.sku, this.specialPrice, required this.priceRange});
 
   factory Product.fromJson(Map<String, dynamic> json) {
+    var priceRangeJson = json['price_range'];
+    var priceRange = PriceRange.fromJson(priceRangeJson);
     return Product(
       name: json['name'],
-      description: json['description'],
-      imageUrl: json['imageUrl'],
-      price: json['price'].toDouble(),
+      sku: json['sku'],
+      specialPrice: json['special_price'],
+      priceRange: priceRange,
     );
   }
 }
+
+class PriceRange {
+  final double regularPrice;
+  final double finalPrice;
+  final double discount;
+
+  PriceRange({required this.regularPrice, required this.finalPrice, required this.discount});
+
+  factory PriceRange.fromJson(Map<String, dynamic> json) {
+    var minimumPrice = json['minimum_price'];
+    return PriceRange(
+      regularPrice: (minimumPrice['regular_price']['value'] as num).toDouble(),
+      finalPrice: (minimumPrice['final_price']['value'] as num).toDouble(),
+      discount: (minimumPrice['discount']['amount_off'] as num).toDouble(),
+    );
+  }
+}
+
+
+class ConfigurableOption {
+  final String uid;
+  final String optionLabel;
+  final String valueLabel;
+
+  ConfigurableOption({required this.uid, required this.optionLabel, required this.valueLabel});
+
+  factory ConfigurableOption.fromJson(Map<String, dynamic> json) {
+    return ConfigurableOption(
+      uid: json['configurable_product_option_uid'],
+      optionLabel: json['option_label'],
+      valueLabel: json['value_label'],
+    );
+  }
+}
+
+
